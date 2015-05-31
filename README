@@ -2,7 +2,7 @@ USAGE
 
 * Create a directory, say, ~/bundle.
 * Put 'brushes' and 'paintoppresets' directories from old resource archive to that new directory.
-* Put also file called preview.png into the same directory.
+* Put also preview.png file into the same directory.
 * Chdir to ~/bundle.
 * Run create-krita-bundle.py from console/terminal emulator.
 * It will ask you several questions about the bundle being created.

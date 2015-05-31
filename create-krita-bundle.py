@@ -82,7 +82,7 @@ class Bundle(object):
         s += """</manifest:manifest>"""
         return s
 
-    def create(self, zipname, meta, brushdir, presetsdir):
+    def create(self, zipname, meta, brushdir, presetsdir, preview):
         self.read_brushes(brushdir)
         self.read_presets(presetsdir)
 
@@ -92,7 +92,7 @@ class Bundle(object):
         zf.writestr("mimetype", "application/x-krita-resourcebundle")
         zf.writestr("META-INF/manifest.xml", manifest)
         zf.writestr("meta.xml", meta.tostring())
-        zf.write("preview.png")
+        zf.write(preview, "preview.png")
         for fname in self.brushes:
             zf.write(fname, fname)
         for fname in self.presets:
@@ -122,9 +122,10 @@ if __name__ == "__main__":
     zipname = ask("Bundle file name")
     brushdir = ask("Brushes directory", "brushes")
     presetsdir = ask("Presets directory", "paintoppresets")
+    preview = ask("Preview", "preview.png")
 
     bundle = Bundle()
-    bundle.create(zipname, meta, brushdir, presetsdir)
+    bundle.create(zipname, meta, brushdir, presetsdir, preview)
 
 
 
