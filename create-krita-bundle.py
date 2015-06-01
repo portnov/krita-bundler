@@ -1,11 +1,20 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*- 
 
 import os
+import sys
 from os.path import join, basename, isdir
 from glob import glob
 import hashlib
 from zipfile import ZipFile, ZIP_STORED
+
+try:
+    import ConfigParser as configparser
+except ImportError:
+    try:
+        import configparser
+    except ImportError:
+        raise ImportError("Neither ConfigParser nor configparser module not found")
 
 VERSION="0.0.1"
 
@@ -27,7 +36,7 @@ class Meta(dict):
         <meta:meta-userdefined meta:name="email" meta:value="{email}"/>
         <meta:meta-userdefined meta:name="license" meta:value="{license}"/>
         <meta:meta-userdefined meta:name="website" meta:value="{website}"/>
-</meta:meta>""".format(**self)
+</meta:meta>""".format(**self).encode('utf-8')
 
 class Bundle(object):
     def __init__(self):
@@ -65,22 +74,22 @@ class Bundle(object):
 
     def manifest_entry(self, mtype, fname):
         vs = dict(mtype=mtype, fname=fname, md5=self.md5(fname))
-        return """<manifest:file-entry manifest:media-type="{mtype}" manifest:full-path="{fname}" manifest:md5sum="{md5}"/>
+        return u"""<manifest:file-entry manifest:media-type="{mtype}" manifest:full-path="{fname}" manifest:md5sum="{md5}"/>
 """.format(**vs)
 
     def format_manifest(self):
-        s = """<?xml version="1.0" encoding="UTF-8"?>
+        s = u"""<?xml version="1.0" encoding="UTF-8"?>
 """
-        s += """<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
+        s += u"""<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
 """
-        s += """<manifest:file-entry manifest:media-type="application/x-krita-resourcebundle" manifest:full-path="/"/>
+        s += u"""<manifest:file-entry manifest:media-type="application/x-krita-resourcebundle" manifest:full-path="/"/>
 """
         for fname in self.brushes:
             s += self.manifest_entry('brushes', fname)
         for fname in self.presets:
             s += self.manifest_entry('paintoppresets', fname)
-        s += """</manifest:manifest>"""
-        return s
+        s += u"""</manifest:manifest>"""
+        return s.encode('utf-8')
 
     def create(self, zipname, meta, brushdir, presetsdir, preview):
         self.read_brushes(brushdir)
@@ -100,37 +109,52 @@ class Bundle(object):
 
         zf.close()
 
-def ask(prompt, default=None):
-    t = " [{}]: ".format(default) if default is not None else ": "
-    r = raw_input(prompt + t)
-    if not r:
-        return default
-    else:
-        return r
+class Config(configparser.ConfigParser):
+    SECTION = "Bundle"
+
+    def __init__(self, filename=None):
+        configparser.ConfigParser.__init__(self)
+        self._filename = filename
+        if filename is not None:
+            self.read(filename)
+
+    def ask(self, option, default=None):
+        if self._filename is None:
+            t = " [{}]: ".format(default) if default is not None else ": "
+            r = raw_input(option + t)
+            if not r:
+                return default
+            else:
+                return r.decode('utf-8')
+        else:
+            if self.has_option(self.SECTION, option):
+                return self.get(self.SECTION, option).decode('utf-8')
+            else:
+                return default
 
 if __name__ == "__main__":
-    meta = Meta()
-    author = meta["author"] = ask("Author")
-    meta["description"] = ask("Description")
-    meta["initialcreator"] = ask("Initial creator", author)
-    meta["creator"] = ask("Creator", author)
-    meta["date"] = ask("Date")
-    meta["email"] = ask("Email")
-    meta["website"] = ask("Website")
-    meta["license"] = ask("License")
 
-    zipname = ask("Bundle file name")
-    brushdir = ask("Brushes directory", "brushes")
-    presetsdir = ask("Presets directory", "paintoppresets")
-    preview = ask("Preview", "preview.png")
+    if len(sys.argv) == 2:
+        cfgfile = sys.argv[1]
+    else:
+        cfgfile = None
+    config = Config(cfgfile)
+
+    meta = Meta()
+    author = meta["author"] = config.ask("Author")
+    meta["description"] = config.ask("Description")
+    meta["initialcreator"] = config.ask("Initial creator", author)
+    meta["creator"] = config.ask("Creator", author)
+    meta["date"] = config.ask("Date")
+    meta["email"] = config.ask("Email")
+    meta["website"] = config.ask("Website")
+    meta["license"] = config.ask("License")
+
+    zipname = config.ask("Bundle file name")
+    brushdir = config.ask("Brushes directory", "brushes")
+    presetsdir = config.ask("Presets directory", "paintoppresets")
+    preview = config.ask("Preview", "preview.png")
 
     bundle = Bundle()
     bundle.create(zipname, meta, brushdir, presetsdir, preview)
-
-
-
-
-
-
-
 
