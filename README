@@ -8,3 +8,10 @@ USAGE
 * It will ask you several questions about the bundle being created.
 * As a result, it will produce *.bundle file.
 * Import that file to Krita to test that it works as expected.
+
+The script can also read all answers from the config file specified as command line parameter,
+for example
+  create-krita-bundle.py test.bundleconfig
+
+See example of config file in bundles/ramon.bundleconfig.
+
