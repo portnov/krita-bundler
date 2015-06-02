@@ -42,6 +42,7 @@ class Bundle(object):
     def __init__(self):
         self.brushes = []
         self.presets = []
+        self.patterns = []
         self.meta = None
 
     def get_files(self, dir):
@@ -63,6 +64,11 @@ class Bundle(object):
             return
         #os.chdir(presetsdir)
         self.presets.extend(self.get_files(presetsdir))
+
+    def read_patterns(self, patdir):
+        if not patdir:
+            return
+        self.brushes.extend(self.get_files(patdir))
 
     def md5(self, fname):
         m = hashlib.md5()
@@ -86,14 +92,17 @@ class Bundle(object):
 """
         for fname in self.brushes:
             s += self.manifest_entry('brushes', fname)
+        for fname in self.patterns:
+            s += self.manifest_entry('patterns', fname)
         for fname in self.presets:
             s += self.manifest_entry('paintoppresets', fname)
         s += u"""</manifest:manifest>"""
         return s.encode('utf-8')
 
-    def create(self, zipname, meta, brushdir, presetsdir, preview):
+    def create(self, zipname, meta, brushdir, presetsdir, patdir, preview):
         self.read_brushes(brushdir)
         self.read_presets(presetsdir)
+        self.read_patterns(patdir)
 
         manifest = self.format_manifest()
 
@@ -103,6 +112,8 @@ class Bundle(object):
         zf.writestr("meta.xml", meta.tostring())
         zf.write(preview, "preview.png")
         for fname in self.brushes:
+            zf.write(fname, fname)
+        for fname in self.patterns:
             zf.write(fname, fname)
         for fname in self.presets:
             zf.write(fname, fname)
@@ -152,9 +163,10 @@ if __name__ == "__main__":
 
     zipname = config.ask("Bundle file name")
     brushdir = config.ask("Brushes directory", "brushes")
+    patdir = config.ask("Patterns directory", "patterns")
     presetsdir = config.ask("Presets directory", "paintoppresets")
     preview = config.ask("Preview", "preview.png")
 
     bundle = Bundle()
-    bundle.create(zipname, meta, brushdir, presetsdir, preview)
+    bundle.create(zipname, meta, brushdir, presetsdir, patdir, preview)
 
