@@ -5,6 +5,7 @@ import os
 import sys
 from os.path import join, basename, isdir
 import hashlib
+from fnmatch import fnmatch
 from zipfile import ZipFile, ZIP_STORED
 
 try:
@@ -46,32 +47,39 @@ class Bundle(object):
         self.patterns = []
         self.meta = None
 
-    def get_files(self, dir):
+    def fnmatch(self, name, mask):
+        masks = mask.split(";")
+        for m in masks:
+            if fnmatch(name, m):
+                return True
+        return False
+
+    def get_files(self, dir, masks):
         result = []
         for (d, _, files) in os.walk(dir):
             for f in files:
                 if f.startswith('.'):
                     continue
+                if not self.fnmatch(f, masks):
+                    continue
                 path = join(d,f)
                 result.append(path)
         return result
 
-    def read_brushes(self, brushdir):
+    def read_brushes(self, brushdir, mask):
         if not brushdir:
             return
-        #os.chdir(brushdir)
-        self.brushes.extend(self.get_files(brushdir))
+        self.brushes.extend(self.get_files(brushdir, mask))
 
-    def read_presets(self, presetsdir):
+    def read_presets(self, presetsdir, mask):
         if not presetsdir:
             return
-        #os.chdir(presetsdir)
-        self.presets.extend(self.get_files(presetsdir))
+        self.presets.extend(self.get_files(presetsdir, mask))
 
-    def read_patterns(self, patdir):
+    def read_patterns(self, patdir, mask):
         if not patdir:
             return
-        self.brushes.extend(self.get_files(patdir))
+        self.brushes.extend(self.get_files(patdir, mask))
 
     def find_brush(self, name):
         #print("Checking for {}".format(name))
@@ -126,10 +134,10 @@ class Bundle(object):
         s += u"""</manifest:manifest>"""
         return s.encode('utf-8')
 
-    def prepare(self, brushdir, presetsdir, patdir):
-        self.read_brushes(brushdir)
-        self.read_presets(presetsdir)
-        self.read_patterns(patdir)
+    def prepare(self, brushdir, brushmask, presetsdir, presetmask, patdir, patmask):
+        self.read_brushes(brushdir, brushmask)
+        self.read_presets(presetsdir, presetmask)
+        self.read_patterns(patdir, patmask)
 
     def create(self, zipname, meta, preview):
         manifest = self.format_manifest()
@@ -191,12 +199,15 @@ if __name__ == "__main__":
 
     zipname = config.ask("Bundle file name")
     brushdir = config.ask("Brushes directory", "brushes")
+    brushmask = config.ask("Brush files mask", "*.gbr;*.gih;*.png")
     patdir = config.ask("Patterns directory", "patterns")
+    patmask = config.ask("Pattern files mask", "*.pat")
     presetsdir = config.ask("Presets directory", "paintoppresets")
+    presetmask = config.ask("Preset files mask", "*.kpp")
     preview = config.ask("Preview", "preview.png")
 
     bundle = Bundle()
-    bundle.prepare(brushdir, presetsdir, patdir)
+    bundle.prepare(brushdir, brushmask, presetsdir, presetmask, patdir, patmask)
     ok = bundle.check()
     if not ok:
         print("Bundle contains references to resources outside the bundle. You probably need to put required resources to the bundle itself.")
