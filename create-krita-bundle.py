@@ -4,7 +4,6 @@
 import os
 import sys
 from os.path import join, basename, isdir
-from glob import glob
 import hashlib
 from zipfile import ZipFile, ZIP_STORED
 
@@ -15,6 +14,8 @@ except ImportError:
         import configparser
     except ImportError:
         raise ImportError("Neither ConfigParser nor configparser module not found")
+
+from extractor import KPP
 
 VERSION="0.0.1"
 
@@ -49,6 +50,8 @@ class Bundle(object):
         result = []
         for (d, _, files) in os.walk(dir):
             for f in files:
+                if f.startswith('.'):
+                    continue
                 path = join(d,f)
                 result.append(path)
         return result
@@ -70,6 +73,30 @@ class Bundle(object):
             return
         self.brushes.extend(self.get_files(patdir))
 
+    def find_brush(self, name):
+        #print("Checking for {}".format(name))
+        for brush in self.brushes:
+            if basename(brush) == name:
+                #print("Found")
+                return True
+        return False
+
+    def check(self):
+        result = True
+        for fname in self.presets:
+            #print("Checking {}".format(fname))
+            kpp = KPP(fname)
+            links = kpp.get_links()
+            requiredBrushFile = links.get('requiredBrushFile', None)
+            #print("Required brush file: {}".format(requiredBrushFile))
+            if requiredBrushFile:
+                ok = self.find_brush(requiredBrushFile)
+                if not ok:
+                    print("Warning: required brush file {} not found for preset {}".format(requiredBrushFile, fname))
+                    result = False
+        return result
+
+
     def md5(self, fname):
         m = hashlib.md5()
         f = open(fname, 'r')
@@ -79,7 +106,7 @@ class Bundle(object):
         return m.hexdigest()
 
     def manifest_entry(self, mtype, fname):
-        vs = dict(mtype=mtype, fname=fname, md5=self.md5(fname))
+        vs = dict(mtype=mtype, fname=fname.decode('utf-8'), md5=self.md5(fname))
         return u"""<manifest:file-entry manifest:media-type="{mtype}" manifest:full-path="{fname}" manifest:md5sum="{md5}"/>
 """.format(**vs)
 
@@ -99,11 +126,12 @@ class Bundle(object):
         s += u"""</manifest:manifest>"""
         return s.encode('utf-8')
 
-    def create(self, zipname, meta, brushdir, presetsdir, patdir, preview):
+    def prepare(self, brushdir, presetsdir, patdir):
         self.read_brushes(brushdir)
         self.read_presets(presetsdir)
         self.read_patterns(patdir)
 
+    def create(self, zipname, meta, preview):
         manifest = self.format_manifest()
 
         zf = ZipFile(zipname, 'w', ZIP_STORED)
@@ -168,5 +196,9 @@ if __name__ == "__main__":
     preview = config.ask("Preview", "preview.png")
 
     bundle = Bundle()
-    bundle.create(zipname, meta, brushdir, presetsdir, patdir, preview)
+    bundle.prepare(brushdir, presetsdir, patdir)
+    ok = bundle.check()
+    if not ok:
+        print("Bundle contains references to resources outside the bundle. You probably need to put required resources to the bundle itself.")
+    bundle.create(zipname, meta, preview)
 
