@@ -7,6 +7,7 @@ from os.path import join, basename, isdir
 import hashlib
 from fnmatch import fnmatch
 from zipfile import ZipFile, ZIP_STORED
+from xml.sax.saxutils import escape as xmlescape
 
 try:
     import ConfigParser as configparser
@@ -26,6 +27,7 @@ class Meta(dict):
         self["VERSION"] = VERSION
 
     def tostring(self):
+        wrapped = self.wrap()
         return u"""<?xml version="1.0" encoding="UTF-8"?>
 <meta:meta>
         <meta:generator>Krita resource bundle creator v.{VERSION}</meta:generator>
@@ -38,7 +40,13 @@ class Meta(dict):
         <meta:meta-userdefined meta:name="email" meta:value="{email}"/>
         <meta:meta-userdefined meta:name="license" meta:value="{license}"/>
         <meta:meta-userdefined meta:name="website" meta:value="{website}"/>
-</meta:meta>""".format(**self).encode('utf-8')
+</meta:meta>""".format(**wrapped).encode('utf-8')
+
+    def wrap(self):
+        res = dict()
+        for k, v in self.iteritems():
+            res[k] = xmlescape(v)
+        return res
 
 class Bundle(object):
     def __init__(self):
