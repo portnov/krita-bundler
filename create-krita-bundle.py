@@ -7,7 +7,7 @@ from os.path import join, basename, isdir
 import hashlib
 from fnmatch import fnmatch
 from zipfile import ZipFile, ZIP_STORED
-from xml.sax.saxutils import escape as xmlescape
+#from xml.sax.saxutils import escape as xmlescape
 from lxml import etree
 from lxml.builder import ElementMaker
 
@@ -23,11 +23,14 @@ from extractor import KPP
 
 VERSION="0.0.1"
 
+MIMETYPE = "application/x-krita-resourcebundle"
+
 META_NAMESPACE = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
-#META = "{" + META_NAMESPACE + "}"
 DC_NAMESPACE = "http://dublincore.org/documents/dcmi-namespace/"
-#DC = "{" + DC_NAMESPACE + "}"
-NSMAP = dict(meta=META_NAMESPACE, dc=DC_NAMESPACE)
+MANIFEST_NAMESPACE = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" 
+MANIFEST = "{"+MANIFEST_NAMESPACE+"}"
+
+NSMAP = dict(meta=META_NAMESPACE, dc=DC_NAMESPACE, manifest=MANIFEST_NAMESPACE)
 
 META = ElementMaker(namespace=META_NAMESPACE, nsmap=NSMAP)
 DC = ElementMaker(namespace=DC_NAMESPACE, nsmap=NSMAP)
@@ -44,6 +47,12 @@ class Meta(object):
         self.license = ""
         self.website = ""
 
+    def userdefined(self, name, value):
+        tag = META("meta-userdefined")
+        tag.attrib["{"+META_NAMESPACE+"}name"] = name
+        tag.attrib["{"+META_NAMESPACE+"}value"] = value
+        return tag
+
     def toxml(self):
         meta = META.meta(
                     META.generator("Krita resource bundle creator v.{}".format(VERSION)),
@@ -53,20 +62,14 @@ class Meta(object):
                     DC.creator(self.creator),
                     META("creation-date", self.date),
                     META("dc-date", self.date),
-                    META("meta-userdefined", name="email", value=self.email),
-                    META("meta-userdefined", name="license", value=self.license),
-                    META("meta-userdefined", name="website", value=self.website)
+                    self.userdefined("email", self.email),
+                    self.userdefined("license", self.license),
+                    self.userdefined("website", self.website)
               )
         return meta
 
     def tostring(self):
         return etree.tostring(self.toxml(), xml_declaration=True, pretty_print=True, encoding="UTF-8")
-
-    def wrap(self):
-        res = dict()
-        for k, v in self.iteritems():
-            res[k] = xmlescape(v)
-        return res
 
 class Bundle(object):
     def __init__(self):
@@ -141,26 +144,27 @@ class Bundle(object):
         m.update(s)
         return m.hexdigest()
 
-    def manifest_entry(self, mtype, fname):
-        vs = dict(mtype=mtype, fname=fname.decode('utf-8'), md5=self.md5(fname))
-        return u"""<manifest:file-entry manifest:media-type="{mtype}" manifest:full-path="{fname}" manifest:md5sum="{md5}"/>
-""".format(**vs)
+    def manifest_entry(self, manifest, mtype, fname, add_md5=True):
+        entry = etree.SubElement(manifest, MANIFEST+"file-entry")
+        entry.attrib[MANIFEST+"media-type"] = mtype
+        entry.attrib[MANIFEST+"full-path"] = fname
+        if add_md5:
+            entry.attrib[MANIFEST+"md5sum"] = self.md5(fname)
+        return entry
 
     def format_manifest(self):
-        s = u"""<?xml version="1.0" encoding="UTF-8"?>
-"""
-        s += u"""<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
-"""
-        s += u"""<manifest:file-entry manifest:media-type="application/x-krita-resourcebundle" manifest:full-path="/"/>
-"""
+        manifest = etree.Element(MANIFEST+"manifest", nsmap=NSMAP)
+        manifest.attrib[MANIFEST+"version"] = "1.2"
+
+        self.manifest_entry(manifest, MIMETYPE, "/", add_md5=False)
+
         for fname in self.brushes:
-            s += self.manifest_entry('brushes', fname)
+            self.manifest_entry(manifest, 'brushes', fname)
         for fname in self.patterns:
-            s += self.manifest_entry('patterns', fname)
+            self.manifest_entry(manifest, 'patterns', fname)
         for fname in self.presets:
-            s += self.manifest_entry('paintoppresets', fname)
-        s += u"""</manifest:manifest>"""
-        return s.encode('utf-8')
+            self.manifest_entry(manifest, 'paintoppresets', fname)
+        return etree.tostring(manifest, xml_declaration=True, pretty_print=True, encoding="UTF-8")
 
     def prepare(self, brushdir, brushmask, presetsdir, presetmask, patdir, patmask):
         self.read_brushes(brushdir, brushmask)
@@ -171,7 +175,7 @@ class Bundle(object):
         manifest = self.format_manifest()
 
         zf = ZipFile(zipname, 'w', ZIP_STORED)
-        zf.writestr("mimetype", "application/x-krita-resourcebundle")
+        zf.writestr("mimetype", MIMETYPE)
         zf.writestr("META-INF/manifest.xml", manifest)
         zf.writestr("meta.xml", meta.tostring())
         zf.write(preview, "preview.png")
