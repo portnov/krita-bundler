@@ -8,6 +8,8 @@ import hashlib
 from fnmatch import fnmatch
 from zipfile import ZipFile, ZIP_STORED
 from xml.sax.saxutils import escape as xmlescape
+from lxml import etree
+from lxml.builder import ElementMaker
 
 try:
     import ConfigParser as configparser
@@ -21,26 +23,44 @@ from extractor import KPP
 
 VERSION="0.0.1"
 
-class Meta(dict):
+META_NAMESPACE = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
+#META = "{" + META_NAMESPACE + "}"
+DC_NAMESPACE = "http://dublincore.org/documents/dcmi-namespace/"
+#DC = "{" + DC_NAMESPACE + "}"
+NSMAP = dict(meta=META_NAMESPACE, dc=DC_NAMESPACE)
+
+META = ElementMaker(namespace=META_NAMESPACE, nsmap=NSMAP)
+DC = ElementMaker(namespace=DC_NAMESPACE, nsmap=NSMAP)
+
+class Meta(object):
+
     def __init__(self):
-        dict.__init__(self)
-        self["VERSION"] = VERSION
+        self.author = "Unknown Artist"
+        self.description = "Not provided"
+        self.initial_creator = self.author
+        self.creator = self.author
+        self.date = "Unknown"
+        self.email = ""
+        self.license = ""
+        self.website = ""
+
+    def toxml(self):
+        meta = META.meta(
+                    META.generator("Krita resource bundle creator v.{}".format(VERSION)),
+                    DC.author(self.author),
+                    DC.description(self.description),
+                    META("initial-creator", self.initial_creator),
+                    DC.creator(self.creator),
+                    META("creation-date", self.date),
+                    META("dc-date", self.date),
+                    META("meta-userdefined", name="email", value=self.email),
+                    META("meta-userdefined", name="license", value=self.license),
+                    META("meta-userdefined", name="website", value=self.website)
+              )
+        return meta
 
     def tostring(self):
-        wrapped = self.wrap()
-        return u"""<?xml version="1.0" encoding="UTF-8"?>
-<meta:meta>
-        <meta:generator>Krita resource bundle creator v.{VERSION}</meta:generator>
-        <dc:author>{author}</dc:author>
-        <dc:description>{description}</dc:description>
-        <meta:initial-creator>{initialcreator}</meta:initial-creator>
-        <dc:creator>{creator}</dc:creator>
-        <meta:creation-date>{date}</meta:creation-date>
-        <meta:dc-date>{date}</meta:dc-date>
-        <meta:meta-userdefined meta:name="email" meta:value="{email}"/>
-        <meta:meta-userdefined meta:name="license" meta:value="{license}"/>
-        <meta:meta-userdefined meta:name="website" meta:value="{website}"/>
-</meta:meta>""".format(**wrapped).encode('utf-8')
+        return etree.tostring(self.toxml(), xml_declaration=True, pretty_print=True, encoding="UTF-8")
 
     def wrap(self):
         res = dict()
@@ -196,14 +216,14 @@ if __name__ == "__main__":
     config = Config(cfgfile)
 
     meta = Meta()
-    author = meta["author"] = config.ask("Author")
-    meta["description"] = config.ask("Description")
-    meta["initialcreator"] = config.ask("Initial creator", author)
-    meta["creator"] = config.ask("Creator", author)
-    meta["date"] = config.ask("Date")
-    meta["email"] = config.ask("Email")
-    meta["website"] = config.ask("Website")
-    meta["license"] = config.ask("License")
+    author = meta.author = config.ask("Author")
+    meta.description = config.ask("Description")
+    meta.initial_creator = config.ask("Initial creator", author)
+    meta.creator = config.ask("Creator", author)
+    meta.date = config.ask("Date")
+    meta.email = config.ask("Email")
+    meta.website = config.ask("Website")
+    meta.license = config.ask("License")
 
     zipname = config.ask("Bundle file name")
     brushdir = config.ask("Brushes directory", "brushes")
