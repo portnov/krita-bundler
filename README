@@ -11,12 +11,18 @@ USAGE
 
 The script can also read all answers from the config file specified as command line parameter,
 for example
+
   create-krita-bundle.py test.bundleconfig
 
 See example of config file in bundles/ramon.bundleconfig.
 
 If PIL or Pillow module is available, then the script will check references from *.kpp files to
 required brush files. It will print a warning for each not found brush.
+
+Script can automatically put required brush files to the bundle from specified directories or bundles.
+Sample of config line:
+
+  Auto add resources = ~/.kde/share/apps/krita/brushes/;~/.kde/share/apps/krita/bundles/*.bundle
 
 There are also two utility scripts:
 
