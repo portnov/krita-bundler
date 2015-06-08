@@ -3,9 +3,11 @@
 
 import os
 import sys
-from os.path import join, basename, isdir
+from os.path import join, basename, isdir, isfile, expanduser
+import shutil
 import hashlib
 from fnmatch import fnmatch
+from glob import glob
 from zipfile import ZipFile, ZIP_STORED
 #from xml.sax.saxutils import escape as xmlescape
 from lxml import etree
@@ -120,7 +122,43 @@ class Bundle(object):
                 return True
         return False
 
-    def check(self):
+    def unpack_from_bundle(self, bundle, target_directory, resource):
+        zf = ZipFile(bundle, 'r')
+        #print(zf.namelist())
+        path = join(target_directory, resource)
+        if path not in zf.namelist():
+            return False
+        print("Extracting {} from bundle {}".format(resource, bundle))
+        zf.extract(path)
+        zf.close()
+        return True
+
+    def auto_add(self, mtype, target_directory, sources, resource):
+        if not isdir(target_directory):
+            os.makedirs(target_directory)
+
+        target_path = join(target_directory, resource)
+
+        found = False
+        for src in sources:
+            if isfile(src) and src.endswith(".bundle"):
+                found = self.unpack_from_bundle(src, target_directory, resource)
+            elif isdir(src):
+                path = join(src, basename(resource))
+                if not isfile(path):
+                    continue
+                shutil.copy(path, target_path)
+                found = True
+            else:
+                print("Error: {} is not a directory and is not a bundle file")
+                continue
+            if found:
+                if mtype == 'brushes':
+                    self.brushes.append(target_path)
+                break
+        return found
+
+    def check(self, resourcedir=None):
         result = True
         for fname in self.presets:
             #print("Checking {}".format(fname))
@@ -131,8 +169,16 @@ class Bundle(object):
             if requiredBrushFile:
                 ok = self.find_brush(requiredBrushFile)
                 if not ok:
-                    print("Warning: required brush file {} not found for preset {}".format(requiredBrushFile, fname))
-                    result = False
+                    warning = "Warning: required brush file {} not found for preset {}".format(requiredBrushFile, fname)
+                    if resourcedir is None:
+                        print(warning)
+                        result = False
+                    else:
+                        result = self.auto_add('brushes', self.brushdir, resourcedir, requiredBrushFile)
+                        if result:
+                            print("Adding missing brush file {} for preset {}".format(requiredBrushFile, fname))
+                        else:
+                            print(warning)
         return result
 
 
@@ -167,8 +213,10 @@ class Bundle(object):
         return etree.tostring(manifest, xml_declaration=True, pretty_print=True, encoding="UTF-8")
 
     def prepare(self, brushdir, brushmask, presetsdir, presetmask, patdir, patmask):
+        self.brushdir = brushdir
         self.read_brushes(brushdir, brushmask)
         self.read_presets(presetsdir, presetmask)
+        self.patdir = patdir
         self.read_patterns(patdir, patmask)
 
     def create(self, zipname, meta, preview):
@@ -197,7 +245,7 @@ class Config(configparser.ConfigParser):
         if filename is not None:
             self.read(filename)
 
-    def ask(self, option, default=None):
+    def ask(self, option, default=None, config_option=None):
         if self._filename is None:
             t = " [{}]: ".format(default) if default is not None else ": "
             r = raw_input(option + t)
@@ -206,6 +254,8 @@ class Config(configparser.ConfigParser):
             else:
                 return r.decode('utf-8')
         else:
+            if config_option is not None:
+                option = config_option
             if self.has_option(self.SECTION, option):
                 return self.get(self.SECTION, option).decode('utf-8')
             else:
@@ -236,11 +286,16 @@ if __name__ == "__main__":
     patmask = config.ask("Pattern files mask", "*.pat")
     presetsdir = config.ask("Presets directory", "paintoppresets")
     presetmask = config.ask("Preset files mask", "*.kpp")
+    autopopulate = config.ask("Automatically add resources from directory", default=None, config_option="Auto add resources")
+    if autopopulate is not None:
+        autopopulate = autopopulate.split(";")
+        autopopulate = map(expanduser, autopopulate)
+        autopopulate = sum(map(glob, autopopulate), [])
     preview = config.ask("Preview", "preview.png")
 
     bundle = Bundle()
     bundle.prepare(brushdir, brushmask, presetsdir, presetmask, patdir, patmask)
-    ok = bundle.check()
+    ok = bundle.check(autopopulate)
     if not ok:
         print("Bundle contains references to resources outside the bundle. You probably need to put required resources to the bundle itself.")
     bundle.create(zipname, meta, preview)

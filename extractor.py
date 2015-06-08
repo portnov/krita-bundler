@@ -21,18 +21,18 @@ if pil_available:
         def get_preset_text(self):
             try:
                 self.image = Image.open(self.filename)
-            except IOError as e:
-                print("{}: can not read image: {}".format(self.filename, e))
+            except Exception as e:
+                print("Error: {}: can not read image: {}".format(self.filename, e))
                 return None
 
             if self.image.format != 'PNG':
-                print("{} is not a PNG file".format(self.filename))
+                print("Error: {} is not a PNG file".format(self.filename))
                 return None
             if self.image.text is None:
-                print("{} does not contain text data".format(self.filename))
+                print("Error: {} does not contain text data".format(self.filename))
                 return None
             if 'preset' not in self.image.text:
-                print("{} does not contain Krita preset".format(self.filename))
+                print("Error: {} does not contain Krita preset".format(self.filename))
                 return None
 
             return self.image.text['preset']
