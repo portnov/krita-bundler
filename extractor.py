@@ -1,5 +1,6 @@
 
 from lxml import etree
+import io
 
 try:
     import Image
@@ -15,12 +16,17 @@ except ImportError:
 if pil_available:
 
     class KPP(object):
-        def __init__(self, filename):
+        def __init__(self, filename, data=None):
             self.filename = filename
+            self.data = data
 
         def get_preset_text(self):
             try:
-                self.image = Image.open(self.filename)
+                if self.data is not None:
+                    stream = io.BytesIO(self.data)
+                    self.image = Image.open(stream)
+                else:
+                    self.image = Image.open(self.filename)
             except Exception as e:
                 print("Error: {}: can not read image: {}".format(self.filename, e))
                 return None
