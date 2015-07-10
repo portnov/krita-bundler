@@ -207,7 +207,8 @@ class Bundle(object):
     def find_brush(self, name):
         #print("Checking for {}".format(name))
         for brush in self.brushes:
-            if basename(brush) == name:
+            #print("Checking {}".format(brush))
+            if basename(brush) == basename(name):
                 #print("Found")
                 return True
         return False
@@ -290,7 +291,10 @@ class Bundle(object):
             brushes = []
             for brush in self.brushes:
                 if basename(brush) not in used_brushes:
-                    print(u"Warning: skip brush {} since it is not used by any preset.".format(brush).encode('utf-8'))
+                    try:
+                        print(u"Warning: skip brush {} since it is not used by any preset.".format(brush.decode('utf-8')).encode('utf-8'))
+                    except Exception as e:
+                        print(e)
                 else:
                     brushes.append(brush)
             self.brushes[:] = brushes
