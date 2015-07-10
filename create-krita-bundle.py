@@ -73,6 +73,8 @@ if __name__ == "__main__":
     patmask = config.ask("Pattern files mask", "*.pat")
     presetsdir = config.ask("Presets directory", "paintoppresets")
     presetmask = config.ask("Preset files mask", "*.kpp")
+    skip_bad = config.ask("Skip presets with broken references", default=False, config_option="Skip bad presets")
+    skip_unused_brushes = config.ask("Skip unused brushes", default=False)
     autopopulate = config.ask("Automatically add resources from directory", default=None, config_option="Auto add resources")
     if autopopulate is not None:
         autopopulate = autopopulate.split(";")
@@ -82,7 +84,7 @@ if __name__ == "__main__":
 
     bundle = Bundle()
     bundle.prepare(brushdir, brushmask, presetsdir, presetmask, patdir, patmask)
-    ok = bundle.check(autopopulate)
+    ok = bundle.check(skip_bad=skip_bad, resourcedir=autopopulate, skip_unused_brushes=skip_unused_brushes)
     if not ok:
         print("Bundle contains references to resources outside the bundle. You probably need to put required resources to the bundle itself.")
     bundle.create(zipname, meta, preview)

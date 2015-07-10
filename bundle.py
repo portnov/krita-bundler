@@ -143,7 +143,7 @@ class Bundle(object):
         manifest = Manifest.parse(m)
 
         def warn(resource):
-            print("Warning: bundle {} does not contain resource {}, which is referred in its manifest.".format(zipname, resource))
+            print(u"Warning: bundle {} does not contain resource {}, which is referred in its manifest.".format(zipname, resource).encode('utf-8'))
 
         result = Bundle()
         result.presets_data = []
@@ -157,15 +157,15 @@ class Bundle(object):
                 warn(preset)
 
         for brush in manifest.get_resources('brushes'):
-            if preset in zf.namelist():
+            if brush in zf.namelist():
                 result.brushes.append(brush)
             else:
-                warn(preset)
+                warn(brush)
         for pattern in manifest.get_resources('patterns'):
-            if preset in zf.namelist():
+            if pattern in zf.namelist():
                 result.patterns.append(pattern)
             else:
-                warn(preset)
+                warn(pattern)
             
         zf.close()
         return result
@@ -248,9 +248,12 @@ class Bundle(object):
                 break
         return found
 
-    def check(self, resourcedir=None):
+    def check(self, skip_bad=False, skip_unused_brushes=False, resourcedir=None):
         result = True
+        presets = []
+        used_brushes = set()
         for fname in self.presets:
+            add = True
             #print("Checking {}".format(fname))
             kpp = KPP(fname)
             links = kpp.get_links()
@@ -262,13 +265,36 @@ class Bundle(object):
                     warning = "Warning: required brush file {} not found for preset {}".format(requiredBrushFile, fname)
                     if resourcedir is None:
                         print(warning)
+                        if skip_bad:
+                            add = False
+
                         result = False
                     else:
-                        result = self.auto_add('brushes', self.brushdir, resourcedir, requiredBrushFile)
-                        if result:
+                        added = self.auto_add('brushes', self.brushdir, resourcedir, requiredBrushFile)
+                        if added:
                             print("Adding missing brush file {} for preset {}".format(requiredBrushFile, fname))
                         else:
                             print(warning)
+                        result = result and added
+                        if skip_bad:
+                            add = added
+                used_brushes.add(requiredBrushFile)
+            if add:
+                presets.append(fname)
+            else:
+                print("Warning: skip preset {} since it has references to missing brush files.".format(fname))
+
+        self.presets[:] = presets
+
+        if skip_unused_brushes:
+            brushes = []
+            for brush in self.brushes:
+                if basename(brush) not in used_brushes:
+                    print(u"Warning: skip brush {} since it is not used by any preset.".format(brush).encode('utf-8'))
+                else:
+                    brushes.append(brush)
+            self.brushes[:] = brushes
+
         return result
 
     def format_manifest(self):

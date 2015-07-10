@@ -20,6 +20,7 @@ def process(filename, rtypes=None):
                 if name == 'requiredBrushFile':
                     ok = bundle.find_brush(value)
                     if ok:
+                        print("required brush file {} found in the same bundle.".format(value))
                         continue
                 if not value:
                     continue
