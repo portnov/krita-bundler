@@ -7,15 +7,22 @@ from zipfile import ZipFile
 from extractor import KPP
 from bundle import Bundle
 
-def process(filename):
+def process(filename, rtypes=None):
+    if not rtypes:
+        rtypes = ['requiredBrushFile']
+
     def process_kpp(kpp, bundle=None):
         links = kpp.get_links()
         for name, value in links.iteritems():
             if bundle is not None:
+                if name not in rtypes:
+                    continue
                 if name == 'requiredBrushFile':
                     ok = bundle.find_brush(value)
                     if ok:
                         continue
+                if not value:
+                    continue
             print(u"{}: {}".format(name, value).encode('utf-8'))
 
     if filename.endswith(".bundle"):
