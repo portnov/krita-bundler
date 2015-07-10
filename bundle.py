@@ -142,18 +142,30 @@ class Bundle(object):
         m = zf.read('META-INF/manifest.xml')
         manifest = Manifest.parse(m)
 
+        def warn(resource):
+            print("Warning: bundle {} does not contain resource {}, which is referred in its manifest.".format(zipname, resource))
+
         result = Bundle()
         result.presets_data = []
         for preset in manifest.get_resources('paintoppresets'):
-            result.presets.append(preset)
-            data = zf.read(preset)
-            kpp = KPP(preset, data)
-            result.presets_data.append(kpp)
+            if preset in zf.namelist():
+                result.presets.append(preset)
+                data = zf.read(preset)
+                kpp = KPP(preset, data)
+                result.presets_data.append(kpp)
+            else:
+                warn(preset)
 
         for brush in manifest.get_resources('brushes'):
-            result.brushes.append(brush)
+            if preset in zf.namelist():
+                result.brushes.append(brush)
+            else:
+                warn(preset)
         for pattern in manifest.get_resources('patterns'):
-            result.patterns.append(pattern)
+            if preset in zf.namelist():
+                result.patterns.append(pattern)
+            else:
+                warn(preset)
             
         zf.close()
         return result
