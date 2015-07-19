@@ -3,10 +3,17 @@ from lxml import etree
 import io
 
 try:
+    try:
+        from PIL import PngImagePlugin
+        PngImagePlugin.MAX_TEXT_CHUNK = 1000000000
+    except ImportError:
+        pass
     import Image
     pil_available = True
 except ImportError:
     try:
+        from PIL import PngImagePlugin
+        PngImagePlugin.MAX_TEXT_CHUNK = 1000000000
         from PIL import Image
         pil_available = True
     except ImportError:
