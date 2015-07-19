@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*- 
 
+import os
 import sys
 import argparse
 from glob import glob
@@ -41,6 +42,7 @@ def parse_cmdline():
     parser.add_argument('-p', '--presets', nargs=1, metavar='DIRECTORY', help='Directory with preset files (*.kpp)', required=True)
     parser.add_argument('-B', '--bundles', nargs=1, metavar='DIRECTORY', help='Directory with bundle files (*.bundle)')
     parser.add_argument('-i', '--invert', action='store_true', help='Find used brushes instead of unused')
+    parser.add_argument('--remove', action='store_true', help='Remove unused brush files')
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -67,8 +69,20 @@ if __name__ == '__main__':
     else:
 
         brushes = set()
+        brushmap = dict()
         for p in args.brushes:
-            brushes.update([basename(b) for b in glob(join(p, '*'))])
+            for b in glob(join(p, '*')):
+                brushes.add(basename(b))
+                brushmap[basename(b)] = b
         result = brushes.difference(used)
-        for b in result:
-            print(b)
+        if args.remove:
+            for b in result:
+                try:
+                    os.remove(brushmap[b])
+                except Exception as e:
+                    print("Can't remove {}: {}".format(b, e))
+                else:
+                    print("Removed " + brushmap[b])
+        else:
+            for b in result:
+                print(b)
