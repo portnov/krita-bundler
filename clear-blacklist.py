@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from os.path import expanduser
+from os.path import expanduser, exists
 import argparse
 from lxml import etree
 
@@ -19,7 +19,10 @@ for e in xml.findall('file/name'):
     if path.startswith('bundle://'):
         continue
     if args.force:
-        os.remove(path)
+        if exists(path):
+            os.remove(path)
+        else:
+            print(path + ": does not exist")
     else:
         print("rm " + path)
 
