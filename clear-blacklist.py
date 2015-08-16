@@ -16,6 +16,8 @@ xml = etree.fromstring(open(args.filename).read())
 
 for e in xml.findall('file/name'):
     path = expanduser(e.text)
+    if path.startswith('bundle://'):
+        continue
     if args.force:
         os.remove(path)
     else:
