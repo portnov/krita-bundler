@@ -1,3 +1,4 @@
+# encoding: utf-8
 import os
 import sys
 from os.path import join, basename, isdir, isfile, expanduser
@@ -96,12 +97,15 @@ class Manifest(object):
         return result
 
     def manifest_entry(self, mtype, fname, add_md5=True):
-        entry = etree.SubElement(self._manifest, MANIFEST+"file-entry")
-        entry.attrib[MANIFEST+"media-type"] = mtype
-        entry.attrib[MANIFEST+"full-path"] = fname
-        if add_md5:
-            entry.attrib[MANIFEST+"md5sum"] = md5(fname)
-        return entry
+        try:
+            entry = etree.SubElement(self._manifest, MANIFEST+"file-entry")
+            entry.attrib[MANIFEST+"media-type"] = mtype
+            entry.attrib[MANIFEST+"full-path"] = fname
+            if add_md5:
+                entry.attrib[MANIFEST+"md5sum"] = md5(fname)
+            return entry
+        except Exception as e:
+            print(u"Error: can't encode manifest entry for media type {0}, file {1}: {2}".format(mtype, fname.decode('utf-8'), e).encode('utf-8'))
 
     def add_resource(self, mtype, resource):
         self.manifest_entry(mtype, resource)
