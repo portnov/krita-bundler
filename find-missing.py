@@ -4,6 +4,7 @@
 import os
 import sys
 import argparse
+import shutil
 from glob import glob
 from os.path import join, basename, exists
 
@@ -53,17 +54,23 @@ if __name__ == '__main__':
     for brush in used:
         print(brush)
 
-    if args.embed:
+    if args.embed and len(used):
         if not args.brushes:
             print("Error: if --embed mode is on, --brushes must be specified")
             sys.exit(1)
+
+        bundle = Bundle.open(args.bundle)
+        shutil.copy(args.bundle, args.bundle+'.bak')
         
+        found = []
         for brush in used:
             path = find_brush(args.brushes, brush)
             if path:
-                Bundle.add_to_zip(args.bundle, 'brushes', brush, path)
+                found.append(path)
                 print("Added " + brush)
             else:
                 print("Warning: can't find "+brush)
+
+        bundle.add_brushes(args.bundle, found)
 
 

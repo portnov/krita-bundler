@@ -1,12 +1,13 @@
 # encoding: utf-8
 import os
 import sys
-from os.path import join, basename, isdir, isfile, expanduser
+from os.path import join, basename, dirname, isdir, isfile, expanduser
 import shutil
 import hashlib
 from fnmatch import fnmatch
 from glob import glob
 from zipfile import ZipFile, ZIP_STORED
+import tempfile
 #from xml.sax.saxutils import escape as xmlescape
 from lxml import etree
 from lxml.builder import ElementMaker
@@ -76,11 +77,13 @@ class Manifest(object):
         pass
     
     @staticmethod
-    def new():
+    def new(zipfile=None, basedir=None):
         m = Manifest()
         m._manifest = etree.Element(MANIFEST+"manifest", nsmap=NSMAP)
         m._manifest.attrib[MANIFEST+"version"] = "1.2"
         m.manifest_entry(MIMETYPE, "/", add_md5=False)
+        m.zipfile = zipfile
+        m.basedir = basedir
         return m
 
     @staticmethod
@@ -96,13 +99,27 @@ class Manifest(object):
                 result.append(entry.attrib[MANIFEST+"full-path"])
         return result
 
+    def md5(self, new_file_name, file_name_in_zip=None):
+        if self.basedir is not None:
+            new_file_name = join(self.basedir, new_file_name)
+        if self.zipfile is not None and file_name_in_zip is not None and file_name_in_zip in self.zipfile.namelist():
+            #print("calc md5 from zip: " + file_name_in_zip)
+            data = self.zipfile.read(file_name_in_zip)
+            m = hashlib.md5()
+            m.update(data)
+            return m.hexdigest()
+        else:
+            #print("calc md5 from " + new_file_name)
+            return md5(new_file_name)
+
     def manifest_entry(self, mtype, fname, add_md5=True):
         try:
+            data_fname = join(mtype, basename(fname))
             entry = etree.SubElement(self._manifest, MANIFEST+"file-entry")
             entry.attrib[MANIFEST+"media-type"] = mtype
-            entry.attrib[MANIFEST+"full-path"] = fname
+            entry.attrib[MANIFEST+"full-path"] = data_fname
             if add_md5:
-                entry.attrib[MANIFEST+"md5sum"] = md5(fname)
+                entry.attrib[MANIFEST+"md5sum"] = self.md5(fname, data_fname)
             return entry
         except Exception as e:
             print(u"Error: can't encode manifest entry for media type {0}, file {1}: {2}".format(mtype, fname.decode('utf-8'), e).encode('utf-8'))
@@ -124,6 +141,8 @@ class Bundle(object):
         self.patterns = []
         self.presets_data = None
         self.meta = None
+        self.meta_string = None
+        self.preview_data = None
 
     @staticmethod
     def get_presets(zipname):
@@ -159,6 +178,9 @@ class Bundle(object):
                 result.presets_data.append(kpp)
             else:
                 warn(preset)
+
+        result.meta_string = zf.read("meta.xml")
+        result.preview_data = zf.read("preview.png")
 
         for brush in manifest.get_resources('brushes'):
             if brush in zf.namelist():
@@ -305,8 +327,8 @@ class Bundle(object):
 
         return result
 
-    def format_manifest(self):
-        manifest = Manifest.new()
+    def format_manifest(self, zipfile=None, basedir=None):
+        manifest = Manifest.new(zipfile, basedir)
 
         for fname in self.brushes:
             manifest.add_resource('brushes', fname)
@@ -327,11 +349,23 @@ class Bundle(object):
     def create(self, zipname, meta, preview):
         manifest = self.format_manifest()
 
+        if isinstance(meta, Meta):
+            meta_string = meta.tostring()
+        elif meta is None:
+            meta_string = self.meta_string
+        else:
+            raise Exception("Unexpected: unknow meta data type passed")
+
         zf = ZipFile(zipname, 'w', ZIP_STORED)
         zf.writestr("mimetype", MIMETYPE)
         zf.writestr("META-INF/manifest.xml", manifest)
-        zf.writestr("meta.xml", meta.tostring())
-        zf.write(preview, "preview.png")
+        zf.writestr("meta.xml", meta_string)
+
+        if preview is not None:
+            zf.write(preview, "preview.png")
+        else:
+            zf.writestr(self.preview_data, "preview.png")
+
         for fname in self.brushes:
             zf.write(fname, fname)
         for fname in self.patterns:
@@ -342,8 +376,57 @@ class Bundle(object):
         zf.close()
 
     @staticmethod
-    def add_to_zip(zipname, mtype, name, filename):
-        target_path = join(mtype, basename(filename))
+    def update_zip(zipname, filename, new_data):
+        """
+        replace one file within zip archive
+        """
+
+        # generate a temp file
+        tmpfd, tmpname = tempfile.mkstemp(dir=dirname(zipname))
+        os.close(tmpfd)
+
+        # create a temp copy of the archive without filename            
+        with ZipFile(zipname, 'r') as zin:
+            with ZipFile(tmpname, 'w') as zout:
+                zout.comment = zin.comment # preserve the comment
+                for item in zin.infolist():
+                    if item.filename != filename:
+                        zout.writestr(item, zin.read(item.filename))
+
+        # replace with the temp archive
+        os.remove(zipname)
+        os.rename(tmpname, zipname)
+
+        # now add filename with its new data
         with ZipFile(zipname, 'a', ZIP_STORED) as zf:
-            zf.write(filename, target_path)
+            zf.writestr(filename, new_data)
+
+    def add_brushes(self, zipname, brushes):
+        if not brushes:
+            return
+
+        with ZipFile(zipname, 'r') as zf:
+            # recalculate manifest from old zip file
+            manifest = Manifest.new(zf)
+
+            for fname in self.brushes:
+                manifest.add_resource('brushes', fname)
+            for fname in self.patterns:
+                manifest.add_resource('patterns', fname)
+            for fname in self.presets:
+                manifest.add_resource('paintoppresets', fname)
+
+            # add new brushes to manifest
+            for fname in brushes:
+                manifest.add_resource('brushes', fname)
+
+            manifest = manifest.to_string()
+
+        Bundle.update_zip(zipname, "META-INF/manifest.xml", manifest)
+
+        self.brushes.extend(brushes)
+        with ZipFile(zipname, 'a', ZIP_STORED) as zf:
+            for brush in brushes:
+                target_path = join("brushes", basename(brush))
+                zf.write(brush, target_path)
 
