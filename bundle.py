@@ -341,3 +341,9 @@ class Bundle(object):
 
         zf.close()
 
+    @staticmethod
+    def add_to_zip(zipname, mtype, name, filename):
+        target_path = join(mtype, basename(filename))
+        with ZipFile(zipname, 'a', ZIP_STORED) as zf:
+            zf.write(filename, target_path)
+
