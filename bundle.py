@@ -401,8 +401,8 @@ class Bundle(object):
         with ZipFile(zipname, 'a', ZIP_STORED) as zf:
             zf.writestr(filename, new_data)
 
-    def add_brushes(self, zipname, brushes):
-        if not brushes:
+    def add_resources(self, zipname, mtype, paths):
+        if not paths:
             return
 
         with ZipFile(zipname, 'r') as zf:
@@ -416,17 +416,34 @@ class Bundle(object):
             for fname in self.presets:
                 manifest.add_resource('paintoppresets', fname)
 
-            # add new brushes to manifest
-            for fname in brushes:
-                manifest.add_resource('brushes', fname)
+            # add new resources to manifest
+            for fname in paths:
+                manifest.add_resource(mtype, fname)
 
             manifest = manifest.to_string()
 
         Bundle.update_zip(zipname, "META-INF/manifest.xml", manifest)
 
-        self.brushes.extend(brushes)
+        if mtype == 'brushes':
+            self.brushes.extend(paths)
+        elif mtype == 'paintoppresets':
+            self.presets.extend(paths)
+        elif mtype == 'patterns':
+            self.patterns.extend(paths)
+        else:
+            raise Exception("Unsupported resource type: " + mtype)
+
         with ZipFile(zipname, 'a', ZIP_STORED) as zf:
-            for brush in brushes:
-                target_path = join("brushes", basename(brush))
-                zf.write(brush, target_path)
+            for path in paths:
+                target_path = join(mtype, basename(path))
+                zf.write(path, target_path)
+
+    def add_brushes(self, zipname, brushes):
+        self.add_resources(zipname, 'brushes', brushes)
+
+    def add_presets(self, zipname, presets):
+        self.add_resources(zipname, 'paintoppresets', presets)
+
+    def add_patterns(self, zipname, patterns):
+        self.add_resources(zipname, 'patterns', patterns)
 
