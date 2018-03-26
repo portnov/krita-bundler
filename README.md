@@ -8,6 +8,8 @@ with them. The set consists of the following scripts:
 * dump-kpp.py - dump XML preset description from `*.kpp` preset file.
 * extract-external-links.py - output all references to other resource files from given resource files or bundles.
 * find-unused.py - find brush tip files (`*.gbr`, `*.gih` and so on), unused by your presets.
+* find-missing.py - detect brush tip files that were not included into bundle file.
+* add-to-bundle.py - add resources to bundle manually.
 
 USAGE: create-krita-bundle.py
 -----------------------------
@@ -133,4 +135,23 @@ tips to stdout. With `--embed` option, it will also search for missing brush
 tip files in directories passed via `-b` (`--brushes`) command line option, and
 add brush tips that it was able to find to the bundle. Original bundle file
 will be automatically saved as backup, with `.bak` suffix.
+
+USAGE: add-to-bundle.py
+-----------------------
+
+Run as
+
+```
+$ add-to-bundle.py filename.bundle {brush|preset|pattern} /path/to/resource
+```
+
+for example
+
+```
+$ add-to-bundle.py test.bundle brush mybrush1.gih
+```
+
+The script will add specified resource file into bundle archive. It will also
+update bundle's manifest.xml correspondingly. Original bundle file will be
+automatically saved as backup, with `.bak` suffx.
 
