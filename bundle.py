@@ -127,6 +127,16 @@ class Manifest(object):
     def add_resource(self, mtype, resource):
         self.manifest_entry(mtype, resource)
 
+    def remove_resource(self, mtype, resource):
+        data_fname = join(mtype, basename(resource))
+        NS = {'m': MANIFEST_NAMESPACE}
+        #xpath = "m:file-entry[@m:media-type='{mtype}',@m:full-path='{path}']".format(path=data_fname, mtype=mtype)
+        xpath = "m:file-entry[@m:media-type='{mtype}']".format(path=data_fname, mtype=mtype)
+        for item in self._manifest.findall(xpath, namespaces=NS):
+            print(item.attrib[MANIFEST+'full-path'])
+            if item.attrib[MANIFEST+'full-path'] == data_fname:
+                print(etree.tostring(item))
+
     def to_xml(self):
         return self._manifest
     
@@ -438,8 +448,34 @@ class Bundle(object):
                 target_path = join(mtype, basename(path))
                 zf.write(path, target_path)
 
+    def remove_resources_from_manifest(self, zipname, mtype, paths):
+        if not paths:
+            return
+
+        with ZipFile(zipname, 'r') as zf:
+            # recalculate manifest from old zip file
+            manifest = Manifest.new(zf)
+
+            for fname in self.brushes:
+                manifest.add_resource('brushes', fname)
+            for fname in self.patterns:
+                manifest.add_resource('patterns', fname)
+            for fname in self.presets:
+                manifest.add_resource('paintoppresets', fname)
+
+            # remove items
+            for fname in paths:
+                manifest.remove_resource(mtype, fname)
+
+            manifest = manifest.to_string()
+
+        Bundle.update_zip(zipname, "META-INF/manifest.xml", manifest)
+
     def add_brushes(self, zipname, brushes):
         self.add_resources(zipname, 'brushes', brushes)
+
+    def remove_brushes_from_manifest(self, zipname, brushes):
+        self.remove_resources_from_manifest(zipname, 'brushes', brushes)
 
     def add_presets(self, zipname, presets):
         self.add_resources(zipname, 'paintoppresets', presets)

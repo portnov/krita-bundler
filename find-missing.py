@@ -15,6 +15,7 @@ def parse_cmdline():
     parser = argparse.ArgumentParser(description="Find resources that are used by the bundle, but not included into it")
     parser.add_argument('-b', '--brushes', nargs=1, metavar='DIRECTORY', help='Directory with brush files')
     parser.add_argument('--embed', action='store_true', help='Automatically embed found resources to the bundle')
+    parser.add_argument('-d', '--delete', action='store_true', help='Automatically remove found resource from bundle\'s manifest')
     parser.add_argument('bundle', metavar='FILE.BUNDLE', help="Path to bundle file to inspect")
     return parser.parse_args()
 
@@ -73,4 +74,8 @@ if __name__ == '__main__':
 
         bundle.add_brushes(args.bundle, found)
 
+    elif args.delete and len(used):
+        bundle = Bundle.open(args.bundle)
+        shutil.copy(args.bundle, args.bundle+'.bak')
+        bundle.remove_brushes_from_manifest(args.bundle, used)
 
