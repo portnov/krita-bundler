@@ -24,7 +24,7 @@ def process(filename, rtypes=None):
                         continue
                 if not value:
                     continue
-            print(u"{}: {}".format(name, value).encode('utf-8'))
+            print("{}: {}".format(name, value))
 
     if filename.endswith(".bundle"):
         bundle = Bundle.open(filename)
@@ -38,6 +38,6 @@ def process(filename, rtypes=None):
 
 
 for fname in sys.argv[1:]:
-    print(u"Processing: {}".format(fname))
+    print("Processing: {}".format(fname))
     process(fname)
 

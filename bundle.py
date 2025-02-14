@@ -122,7 +122,7 @@ class Manifest(object):
                 entry.attrib[MANIFEST+"md5sum"] = self.md5(fname, data_fname)
             return entry
         except Exception as e:
-            print(u"Error: can't encode manifest entry for media type {0}, file {1}: {2}".format(mtype, fname.decode('utf-8'), e).encode('utf-8'))
+            print("Error: can't encode manifest entry for media type {0}, file {1}: {2}".format(mtype, fname, e))
 
     def add_resource(self, mtype, resource):
         self.manifest_entry(mtype, resource)
@@ -176,7 +176,7 @@ class Bundle(object):
         manifest = Manifest.parse(m)
 
         def warn(resource):
-            print(u"Warning: bundle {} does not contain resource {}, which is referred in its manifest.".format(zipname, resource).encode('utf-8'))
+            print("Warning: bundle {} does not contain resource {}, which is referred in its manifest.".format(zipname, resource))
 
         result = Bundle()
         result.presets_data = []
@@ -328,7 +328,7 @@ class Bundle(object):
             for brush in self.brushes:
                 if basename(brush) not in used_brushes:
                     try:
-                        print(u"Warning: skip brush {} since it is not used by any preset.".format(brush.decode('utf-8')).encode('utf-8'))
+                        print("Warning: skip brush {} since it is not used by any preset.".format(brush))
                     except Exception as e:
                         print(e)
                 else:

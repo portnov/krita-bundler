@@ -39,12 +39,12 @@ class Config(configparser.ConfigParser):
             if not r:
                 return default
             else:
-                return r.decode('utf-8')
+                return r
         else:
             if config_option is not None:
                 option = config_option
             if self.has_option(self.SECTION, option):
-                return self.get(self.SECTION, option).decode('utf-8')
+                return self.get(self.SECTION, option)
             else:
                 return default
 
