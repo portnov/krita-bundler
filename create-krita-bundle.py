@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*- 
 
 import os
@@ -35,7 +35,7 @@ class Config(configparser.ConfigParser):
     def ask(self, option, default=None, config_option=None):
         if self._filename is None:
             t = " [{}]: ".format(default) if default is not None else ": "
-            r = raw_input(option + t)
+            r = input(option + t)
             if not r:
                 return default
             else:

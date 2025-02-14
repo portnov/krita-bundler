@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*- 
 
 import sys
@@ -13,6 +13,6 @@ if len(sys.argv) == 2:
         text = kpp.get_preset_text()
     else:
         text = etree.tostring(xml, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-    print text
+    print(text)
 else:
     print("Usage: dump-kpp filename.kpp")
